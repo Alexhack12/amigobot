@@ -1,0 +1,247 @@
+:root {
+  --bg-main: #f6f3ee;
+  --bg-card: #fffaf3;
+  --bg-soft: #ebe2d6;
+  --bg-input: #fffdf8;
+
+  --text-main: #2b2118;
+  --text-secondary: #7a6b5c;
+  --text-soft: #4f4034;
+
+  --accent: #d88c5a;
+  --accent-soft: #f3c7a5;
+  --accent-dark: #9f5f3d;
+
+  --danger: #b94a48;
+  --success: #5f8f6f;
+
+  --border-soft: rgba(91, 65, 43, 0.14);
+  --shadow-soft: 0 18px 45px rgba(70, 45, 25, 0.12);
+
+  --radius-sm: 10px;
+  --radius-md: 18px;
+  --radius-lg: 28px;
+}
+
+body.light-mode {
+  --bg-main: #f6f3ee;
+  --bg-card: #fffaf3;
+  --bg-soft: #ebe2d6;
+  --bg-input: #fffdf8;
+
+  --text-main: #2b2118;
+  --text-secondary: #7a6b5c;
+  --text-soft: #4f4034;
+
+  --accent: #d88c5a;
+  --accent-soft: #f3c7a5;
+  --accent-dark: #9f5f3d;
+
+  --border-soft: rgba(91, 65, 43, 0.14);
+  --shadow-soft: 0 18px 45px rgba(70, 45, 25, 0.12);
+}
+
+body:not(.light-mode) {
+  --bg-main: #171412;
+  --bg-card: #241f1b;
+  --bg-soft: #302923;
+  --bg-input: #1d1916;
+
+  --text-main: #fff7ed;
+  --text-secondary: #c0aa96;
+  --text-soft: #e3d2c0;
+
+  --accent: #e7a16a;
+  --accent-soft: #5a3827;
+  --accent-dark: #ffbd84;
+
+  --border-soft: rgba(255, 236, 216, 0.12);
+  --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.28);
+}
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html {
+  background: var(--bg-main);
+  scroll-behavior: smooth;
+}
+
+body {
+  min-height: 100vh;
+  background:
+    radial-gradient(circle at top left, rgba(216, 140, 90, 0.16), transparent 34%),
+    radial-gradient(circle at bottom right, rgba(95, 143, 111, 0.12), transparent 30%),
+    var(--bg-main);
+  color: var(--text-main);
+  font-family: "Inter", "Segoe UI", Arial, sans-serif;
+  letter-spacing: -0.01em;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+::selection {
+  background: var(--accent-soft);
+  color: var(--text-main);
+}
+
+::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-soft);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
+
+.app-shell,
+.home,
+.auth-page,
+.welcome-page,
+.settings-page,
+.profile-page {
+  color: var(--text-main);
+}
+
+.card,
+.auth-card,
+.welcome-card,
+.settings-card,
+.profile-card,
+.dashboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-soft);
+  box-shadow: var(--shadow-soft);
+  border-radius: var(--radius-lg);
+}
+
+input,
+textarea,
+select {
+  background: var(--bg-input);
+  color: var(--text-main);
+  border: 1px solid var(--border-soft);
+  outline: none;
+}
+
+input:focus,
+textarea:focus,
+select:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(216, 140, 90, 0.14);
+}
+
+@media (max-width: 768px) {
+  body {
+    overflow-x: hidden;
+  }
+
+  .home {
+    flex-direction: column;
+    height: auto;
+    min-height: 100vh;
+  }
+
+  .sidebar {
+    width: 100%;
+    height: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+    overflow-x: auto;
+  }
+
+  .sidebar-top {
+    min-width: 160px;
+  }
+
+  .logo {
+    font-size: 20px;
+    margin-bottom: 10px;
+  }
+
+  .chat-list {
+    display: flex;
+    gap: 8px;
+    margin-top: 0;
+    flex: 1;
+    overflow-x: auto;
+  }
+
+  .chat-item {
+    white-space: nowrap;
+    margin-bottom: 0;
+  }
+
+  .sidebar-bottom {
+    flex-direction: row;
+    gap: 8px;
+  }
+
+  .sidebar-btn,
+  .new-chat {
+    white-space: nowrap;
+  }
+
+  .chat-window {
+    height: calc(100vh - 150px);
+    padding: 14px;
+  }
+
+  .chat-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .message {
+    max-width: 85%;
+  }
+
+  .auth-card,
+  .welcome-card,
+  .settings-card,
+  .profile-card {
+    padding: 24px;
+  }
+
+  .profile-grid,
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-card.wide {
+    grid-column: span 1;
+  }
+
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+}

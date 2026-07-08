@@ -1,0 +1,183 @@
+.welcome-page {
+  width: 100%;
+  min-height: 100vh;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  padding: 40px;
+
+  background:
+    radial-gradient(circle at top left,
+      rgba(216, 140, 90, 0.18),
+      transparent 35%),
+    radial-gradient(circle at bottom right,
+      rgba(95, 143, 111, 0.12),
+      transparent 30%),
+    var(--bg-main);
+}
+
+.welcome-card {
+  width: 100%;
+  max-width: 760px;
+
+  background: var(--bg-card);
+
+  border-radius: 32px;
+
+  padding: 50px;
+
+  border: 1px solid var(--border-soft);
+
+  box-shadow: var(--shadow-soft);
+
+  backdrop-filter: blur(20px);
+
+  position: relative;
+  overflow: hidden;
+}
+
+.welcome-card::before {
+  content: "";
+
+  position: absolute;
+
+  width: 250px;
+  height: 250px;
+
+  top: -120px;
+  right: -120px;
+
+  border-radius: 50%;
+
+  background: rgba(216, 140, 90, 0.08);
+}
+
+.welcome-card h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--text-main);
+
+  margin-bottom: 12px;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+
+  font-size: 1.05rem;
+
+  line-height: 1.8;
+
+  margin-bottom: 40px;
+
+  max-width: 90%;
+}
+
+.features {
+  display: flex;
+  flex-direction: column;
+
+  gap: 16px;
+
+  margin-bottom: 35px;
+}
+
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+
+  padding: 20px;
+
+  border-radius: 20px;
+
+  background: var(--bg-soft);
+
+  border: 1px solid var(--border-soft);
+
+  transition: 0.25s ease;
+}
+
+.feature:hover {
+  transform: translateY(-3px);
+
+  border-color: rgba(216, 140, 90, 0.25);
+}
+
+.feature span:first-child {
+  font-size: 1.5rem;
+}
+
+.warning-box {
+  background: rgba(216, 140, 90, 0.08);
+
+  border-left: 5px solid var(--accent);
+
+  padding: 18px 20px;
+
+  border-radius: 18px;
+
+  color: var(--text-soft);
+
+  line-height: 1.7;
+
+  margin-bottom: 32px;
+}
+
+.welcome-card button {
+  width: 100%;
+
+  border: none;
+
+  padding: 18px;
+
+  border-radius: 18px;
+
+  background: var(--accent);
+
+  color: white;
+
+  font-size: 1rem;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: 0.25s ease;
+}
+
+.welcome-card button:hover {
+  transform: translateY(-2px);
+
+  background: var(--accent-dark);
+
+  box-shadow:
+    0 10px 25px rgba(216, 140, 90, 0.25);
+}
+
+.welcome-card button:active {
+  transform: translateY(0);
+}
+
+@media (max-width: 768px) {
+  .welcome-page {
+    padding: 20px;
+  }
+
+  .welcome-card {
+    padding: 30px;
+    border-radius: 24px;
+  }
+
+  .welcome-card h1 {
+    font-size: 2.1rem;
+  }
+
+  .subtitle {
+    max-width: 100%;
+  }
+
+  .feature {
+    padding: 16px;
+  }
+}

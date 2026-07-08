@@ -1,0 +1,110 @@
+.message {
+  position: relative;
+
+  max-width: 70%;
+
+  padding: 14px 16px;
+
+  border-radius: 8px;
+
+  line-height: 1.7;
+
+  color: var(--text-main);
+
+  font-size: 0.95rem;
+
+  border: 1px solid var(--border-soft);
+
+  animation: messageAppear 0.25s ease;
+}
+
+.bot {
+  align-self: flex-start;
+
+  background: var(--bg-card);
+
+  border-left: 4px solid var(--accent);
+
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.04);
+}
+
+.user {
+  align-self: flex-end;
+
+  background: rgba(216, 140, 90, 0.12);
+
+  border-left: 4px solid var(--accent);
+
+  color: var(--text-main);
+}
+
+.bot::before {
+  content: "AmigoBot";
+
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+
+  color: var(--accent);
+
+  text-transform: uppercase;
+}
+
+.user::before {
+  content: "Tú";
+
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 12px;
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+
+  color: var(--text-secondary);
+
+  text-transform: uppercase;
+}
+
+.message p {
+  margin-bottom: 10px;
+}
+
+.message p:last-child {
+  margin-bottom: 0;
+}
+
+.message-time {
+  margin-top: 10px;
+
+  font-size: 11px;
+
+  color: var(--text-secondary);
+
+  text-align: right;
+}
+
+@keyframes messageAppear {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .message {
+    max-width: 88%;
+    font-size: 0.92rem;
+  }
+}
