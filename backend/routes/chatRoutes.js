@@ -105,7 +105,55 @@ const getMemoryContext = async (userId, currentConversationId) => {
       }. Resumen: ${item.summary}`;
     });
 };
+const getRecentConversationMessages = async (userId, conversationId) => {
+  const snapshot = await db
+    .collection("chatMessages")
+    .where("conversationId", "==", conversationId)
+    .get();
 
+  const recentMessages = snapshot.docs
+    .map((doc) => {
+      const data = doc.data();
+
+      return {
+        sender: data.sender,
+        text: data.text,
+        createdAt: data.createdAt,
+      };
+    })
+    .filter(
+      (msg) =>
+        typeof msg.text === "string" &&
+        msg.text.trim().length > 0
+    )
+    .sort((a, b) => {
+      const ta =
+        typeof a.createdAt?.toMillis === "function"
+          ? a.createdAt.toMillis()
+          : 0;
+
+      const tb =
+        typeof b.createdAt?.toMillis === "function"
+          ? b.createdAt.toMillis()
+          : 0;
+
+      return ta - tb;
+    })
+    .slice(-24)
+    .map((msg) => ({
+      role:
+        msg.sender === "bot" || msg.sender === "assistant"
+          ? "assistant"
+          : "user",
+      content: msg.text.trim(),
+    }));
+
+  console.log(
+    `[AmigoBot memoria] conversación ${conversationId}: ${recentMessages.length} mensajes`
+  );
+
+  return recentMessages;
+};
 const checkUserBlocked = async (userId) => {
   const userDoc = await db.collection("users").doc(userId).get();
 
@@ -223,7 +271,99 @@ router.get("/conversations", verifyToken, async (req, res) => {
     });
   }
 });
+router.get(
+  "/conversations/:conversationId/messages",
+  verifyToken,
+  async (req, res) => {
+    try {
+      const { conversationId } = req.params;
 
+      const conversationRef = db
+        .collection("conversations")
+        .doc(conversationId);
+
+      const conversationDoc = await conversationRef.get();
+
+      if (!conversationDoc.exists) {
+        return res.status(404).json({
+          message: "Conversación no encontrada.",
+        });
+      }
+
+      const conversationData = conversationDoc.data();
+
+      if (conversationData.userId !== req.user.uid) {
+        return res.status(403).json({
+          message: "No tienes acceso a esta conversación.",
+        });
+      }
+
+      const snapshot = await db
+        .collection("chatMessages")
+        .where("conversationId", "==", conversationId)
+        .get();
+
+      const messages = snapshot.docs
+        .map((doc) => {
+          const data = doc.data();
+
+          return {
+            id: doc.id,
+            sender:
+              data.sender === "assistant"
+                ? "bot"
+                : data.sender === "patient"
+                  ? "user"
+                  : data.sender,
+            text: data.text || "",
+            emotion: data.emotion || null,
+            riskLevel: data.riskLevel || null,
+            createdAt:
+              typeof data.createdAt?.toDate === "function"
+                ? data.createdAt.toDate().toISOString()
+                : null,
+          };
+        })
+        .filter(
+          (message) =>
+            typeof message.text === "string" &&
+            message.text.trim().length > 0 &&
+            (message.sender === "user" || message.sender === "bot")
+        )
+        .sort((a, b) => {
+          if (!a.createdAt && !b.createdAt) return 0;
+          if (!a.createdAt) return 1;
+          if (!b.createdAt) return -1;
+
+          return new Date(a.createdAt) - new Date(b.createdAt);
+        });
+
+      return res.json({
+        conversationId,
+        messages:
+          messages.length > 0
+            ? messages
+            : [
+                {
+                  id: "initial-message",
+                  sender: "bot",
+                  text: "Hola, soy AmigoBot. ¿Qué te gustaría contarme hoy?",
+                  createdAt: null,
+                },
+              ],
+      });
+    } catch (error) {
+      console.error(
+        "Error obteniendo mensajes de conversación:",
+        error
+      );
+
+      return res.status(500).json({
+        message: "Error obteniendo el historial de la conversación.",
+      });
+    }
+  }
+);
 router.post("/message", verifyToken, async (req, res) => {
   try {
     const { message, conversationId } = req.body;
@@ -266,8 +406,23 @@ router.post("/message", verifyToken, async (req, res) => {
       });
     }
 
-    const memoryContext = await getMemoryContext(req.user.uid, conversationId);
-    const aiResult = await analyzeMessage(message, memoryContext);
+   const memoryContext = await getMemoryContext(
+  req.user.uid,
+  conversationId
+);
+
+const recentMessages =
+  await getRecentConversationMessages(
+    req.user.uid,
+    conversationId
+  );
+
+console.log(recentMessages);
+const aiResult = await analyzeMessage(
+  message,
+  memoryContext,
+  recentMessages
+);
 
     await db.collection("chatMessages").add({
       userId: req.user.uid,
