@@ -9,10 +9,18 @@ createRoot(document.getElementById("root")).render(
   </StrictMode>
 );
 
-if ("serviceWorker" in navigator) {
-  window.addEventListener("load", () => {
-    navigator.serviceWorker
-      .register("/sw.js")
-      .catch((error) => console.error("Service Worker error:", error));
+// Registrar el service worker únicamente en la versión compilada.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  window.addEventListener("load", async () => {
+    try {
+      const registration = await navigator.serviceWorker.register("/sw.js");
+
+      console.log(
+        "Service Worker registrado correctamente:",
+        registration.scope
+      );
+    } catch (error) {
+      console.error("Error al registrar el Service Worker:", error);
+    }
   });
 }

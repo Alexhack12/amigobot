@@ -1,10 +1,13 @@
-const CACHE_NAME = "amigobot-cache-v1";
+const CACHE_NAME = "amigobot-static-v2";
 
 const STATIC_ASSETS = [
   "/",
   "/index.html",
   "/manifest.json",
-  "/favicon.svg"
+  "/app-icon.svg",
+  "/app-icon-192.png",
+  "/app-icon-512.png",
+  "/apple-touch-icon.png"
 ];
 
 self.addEventListener("install", (event) => {
@@ -30,9 +33,28 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  if (event.request.method !== "GET") return;
+  const request = event.request;
+
+  if (request.method !== "GET") return;
+
+  const url = new URL(request.url);
+
+  if (url.origin !== self.location.origin || url.pathname.startsWith("/api/")) {
+    return;
+  }
+
+  if (request.mode === "navigate") {
+    event.respondWith(
+      fetch(request).catch(() => caches.match("/index.html"))
+    );
+    return;
+  }
+
+  if (!["image", "manifest"].includes(request.destination)) return;
 
   event.respondWith(
-    fetch(event.request).catch(() => caches.match(event.request))
+    caches.match(request).then((cachedResponse) =>
+      cachedResponse || fetch(request)
+    )
   );
 });
