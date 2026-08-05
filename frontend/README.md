@@ -2,6 +2,12 @@
 
 This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
+## Registro profesional
+
+El registro de pacientes no muestra ni requiere datos profesionales. Para psicologos, el frontend envia la solicitud de verificacion como `multipart/form-data`; el archivo usa el campo `idDocument` y el consentimiento explicito usa `documentConsent=true`. El navegador genera el encabezado `Content-Type` con su boundary, por lo que el codigo no lo establece manualmente.
+
+El documento se procesa temporalmente en memoria en el backend y no se persiste. El formulario aclara que no existe reconocimiento facial. Si el consentimiento falta o no es exactamente `true`, la API responde 400 antes de validar el archivo o consultar SEP/IA y la cuenta permanece `pending`.
+
 Currently, two official plugins are available:
 
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)

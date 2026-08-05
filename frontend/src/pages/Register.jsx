@@ -3,6 +3,13 @@ import { Link, useNavigate } from "react-router-dom";
 import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth";
 import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
+import { verifyPsychologist } from "../services/api";
+import {
+  buildRegistrationUserData,
+  completePsychologistVerification,
+  isPsychologistRegistration,
+  REGISTRATION_DASHBOARD_PATH,
+} from "../utils/registrationFlow.js";
 import "../styles/auth.css";
 
 function Register() {
@@ -15,9 +22,14 @@ function Register() {
 
   const [role, setRole] = useState("patient");
   const [cedula, setCedula] = useState("");
+  const [graduationYear, setGraduationYear] = useState("");
+  const [institution, setInstitution] = useState("");
+  const [idDocument, setIdDocument] = useState(null);
+  const [documentConsent, setDocumentConsent] = useState(false);
 
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const isPsychologist = isPsychologistRegistration(role);
 
   const handleRegister = async (e) => {
     e.preventDefault();
@@ -38,9 +50,38 @@ function Register() {
       return;
     }
 
-    if (role === "psychologist" && !cedula.trim()) {
-      setError("Ingresa tu cédula profesional.");
-      return;
+    if (isPsychologist) {
+      if (!cedula.trim() || !graduationYear.trim() || !institution.trim()) {
+        setError("Completa todos los datos profesionales.");
+        return;
+      }
+
+      if (!/^\d{4}$/.test(graduationYear.trim())) {
+        setError("Ingresa un año de expedición válido.");
+        return;
+      }
+
+      if (!idDocument) {
+        setError("Adjunta una fotografía frontal y legible de tu INE.");
+        return;
+      }
+
+      const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+
+      if (!allowedTypes.includes(idDocument.type)) {
+        setError("El INE debe estar en formato JPEG, PNG o WEBP.");
+        return;
+      }
+
+      if (idDocument.size > 5 * 1024 * 1024) {
+        setError("La imagen del INE no debe superar 5 MB.");
+        return;
+      }
+
+      if (!documentConsent) {
+        setError("Debes autorizar el análisis temporal de la imagen.");
+        return;
+      }
     }
 
     try {
@@ -56,19 +97,44 @@ function Register() {
         displayName: name,
       });
 
-      const userData = {
+      const userData = buildRegistrationUserData({
         uid: userCredential.user.uid,
-        name: name.trim(),
-        email: email.trim(),
+        name,
+        email,
         role,
-        cedula: role === "psychologist" ? cedula.trim() : null,
-        verificationStatus: role === "psychologist" ? "pending" : "approved",
+        cedula,
+        graduationYear,
+        institution,
         createdAt: serverTimestamp(),
-      };
+      });
 
       await setDoc(doc(db, "users", userCredential.user.uid), userData);
 
-      navigate("/dashboard");
+      let verificationMessage = "";
+
+      if (isPsychologist) {
+        verificationMessage = await completePsychologistVerification(
+          verifyPsychologist,
+          {
+            declaredFullName: name.trim(),
+            cedula: cedula.trim(),
+            declaredGraduationYear: graduationYear.trim(),
+            declaredInstitution: institution.trim(),
+            documentConsent,
+            idDocument,
+          }
+        );
+
+        if (verificationMessage === "Verificación pendiente de revisión") {
+          console.warn(
+            "La verificación automática no concluyó; la cuenta permanece pendiente."
+          );
+        }
+      }
+
+      navigate(REGISTRATION_DASHBOARD_PATH, {
+        state: verificationMessage ? { verificationMessage } : undefined,
+      });
     } catch (err) {
       console.error("Error registrando usuario:", err);
 
@@ -95,6 +161,8 @@ function Register() {
         <form className="auth-form" onSubmit={handleRegister}>
           <input
             type="text"
+            name="name"
+            autoComplete="name"
             placeholder="Nombre completo"
             value={name}
             onChange={(e) => setName(e.target.value)}
@@ -102,6 +170,8 @@ function Register() {
 
           <input
             type="email"
+            name="email"
+            autoComplete="email"
             placeholder="Correo electrónico"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -111,7 +181,10 @@ function Register() {
             <button
               type="button"
               className={`role-option ${role === "patient" ? "selected" : ""}`}
-              onClick={() => setRole("patient")}
+              onClick={() => {
+                setRole("patient");
+                setDocumentConsent(false);
+              }}
             >
               <strong>Usuario</strong>
               <span>Quiero hablar con AmigoBot</span>
@@ -127,17 +200,72 @@ function Register() {
             </button>
           </div>
 
-          {role === "psychologist" && (
-            <input
-              type="text"
-              placeholder="Cédula profesional"
-              value={cedula}
-              onChange={(e) => setCedula(e.target.value)}
-            />
+          {isPsychologist && (
+            <div className="professional-fields">
+              <input
+                type="text"
+                name="cedula"
+                autoComplete="off"
+                inputMode="numeric"
+                placeholder="Cédula profesional"
+                value={cedula}
+                onChange={(e) => setCedula(e.target.value)}
+              />
+
+              <input
+                type="text"
+                name="declaredGraduationYear"
+                autoComplete="off"
+                inputMode="numeric"
+                maxLength={4}
+                placeholder="Año de expedición"
+                value={graduationYear}
+                onChange={(e) => setGraduationYear(e.target.value)}
+              />
+
+              <input
+                type="text"
+                name="declaredInstitution"
+                autoComplete="organization"
+                placeholder="Institución educativa"
+                value={institution}
+                onChange={(e) => setInstitution(e.target.value)}
+              />
+
+              <label className="auth-file-label">
+                <strong>Fotografía frontal del INE</strong>
+                <span>JPEG, PNG o WEBP. Máximo 5 MB.</span>
+                <input
+                  type="file"
+                  name="idDocument"
+                  autoComplete="off"
+                  accept="image/jpeg,image/png,image/webp"
+                  capture="environment"
+                  onChange={(e) => setIdDocument(e.target.files?.[0] || null)}
+                />
+              </label>
+
+              <label className="auth-consent">
+                <input
+                  type="checkbox"
+                  name="documentConsent"
+                  autoComplete="off"
+                  checked={documentConsent}
+                  onChange={(e) => setDocumentConsent(e.target.checked)}
+                />
+                <span>
+                  Autorizo el análisis temporal de la imagen para comparar el nombre
+                  declarado. Entiendo que no se realizará reconocimiento facial y que
+                  la imagen no se conservará.
+                </span>
+              </label>
+            </div>
           )}
 
           <input
             type="password"
+            name="password"
+            autoComplete="new-password"
             placeholder="Contraseña"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
@@ -145,6 +273,8 @@ function Register() {
 
           <input
             type="password"
+            name="confirmPassword"
+            autoComplete="new-password"
             placeholder="Confirmar contraseña"
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
+import { useLocation } from "react-router-dom";
 import {
   doc,
   getDocFromServer,
@@ -14,6 +15,7 @@ import PendingPsychologistDashboard from "./PendingPsychologistDashboard";
 import AdminDashboard from "./AdminDashboard";
 
 function DashboardRouter() {
+  const location = useLocation();
   const [userData, setUserData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState("");
@@ -85,7 +87,16 @@ function DashboardRouter() {
 
   if (userData.role === "psychologist") {
     if (userData.verificationStatus === "approved") {
-      return <PsychologistDashboard userData={userData} />;
+      return (
+        <>
+          {location.state?.verificationMessage && (
+            <div className="dashboard-verification-notice" role="status">
+              {location.state.verificationMessage}
+            </div>
+          )}
+          <PsychologistDashboard userData={userData} />
+        </>
+      );
     }
 
     return <PendingPsychologistDashboard userData={userData} />;

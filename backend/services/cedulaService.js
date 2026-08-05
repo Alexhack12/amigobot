@@ -1,14 +1,21 @@
+const {
+  normalizeText,
+  compareNames,
+  compareInstitutions,
+} = require("./verificationText");
+
 const SEP_CEDULA_URL =
   "http://search.sep.gob.mx/solr/cedulasCore/select";
 
-const normalizeText = (text = "") =>
-  String(text)
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^\w\s]/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
+const getSepTimeoutMs = (env = process.env) => {
+  const configured = Number(env.SEP_TIMEOUT_MS || 8000);
+  return Number.isFinite(configured)
+    ? Math.min(Math.max(configured, 2000), 15000)
+    : 8000;
+};
+
+const isMockModeEnabled = (env = process.env) =>
+  env.CEDULA_VALIDATION_MODE === "mock" && env.NODE_ENV !== "production";
 
 const isPsychologyTitle = (title = "") => {
   const cleanTitle = normalizeText(title);
@@ -16,154 +23,194 @@ const isPsychologyTitle = (title = "") => {
   return (
     cleanTitle.includes("psicologia") ||
     cleanTitle.includes("psicologo") ||
-    cleanTitle.includes("psicologa")
+    cleanTitle.includes("psicologa") ||
+    cleanTitle.includes("ciencias psicologicas")
   );
 };
 
-const buildFullName = (doc = {}) => {
-  return [doc.nombre, doc.paterno, doc.materno]
+const buildFullName = (record = {}) =>
+  [record.nombre, record.paterno, record.materno]
     .filter(Boolean)
     .join(" ")
     .trim();
+
+const searchCedulaSEP = async ({ cedula, fetchImpl, timeoutMs }) => {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    const params = new URLSearchParams({
+      fl: "numCedula,nombre,paterno,materno,titulo,institucion,anioRegistro",
+      q: String(cedula).trim(),
+      start: "0",
+      rows: "20",
+      wt: "json",
+    });
+
+    const response = await fetchImpl(`${SEP_CEDULA_URL}?${params.toString()}`, {
+      method: "GET",
+      headers: { Accept: "application/json" },
+      signal: controller.signal,
+    });
+
+    if (!response.ok) {
+      throw new Error(`SEP_HTTP_${response.status}`);
+    }
+
+    const payload = await response.json();
+
+    if (!payload?.response || !Array.isArray(payload.response.docs)) {
+      throw new Error("SEP_INVALID_RESPONSE");
+    }
+
+    return payload.response.docs;
+  } finally {
+    clearTimeout(timeout);
+  }
 };
 
-const searchCedulaSEP = async ({ name, cedula }) => {
-  const query = cedula?.trim() || name?.trim();
+const pendingResult = (message = "La consulta profesional requiere revisión manual.") => ({
+  status: "pending",
+  nameMatch: null,
+  message,
+});
 
-  if (!query) {
-    throw new Error("No hay datos suficientes para consultar la cédula.");
-  }
-
-  const params = new URLSearchParams({
-    fl: "*,score",
-    q: query,
-    start: "0",
-    rows: "50",
-    facet: "true",
-    indent: "on",
-    wt: "json",
-  });
-
-  const response = await fetch(`${SEP_CEDULA_URL}?${params.toString()}`, {
-    method: "GET",
-    headers: {
-      Accept: "application/json",
-    },
-  });
-
-  if (!response.ok) {
-    throw new Error("No se pudo consultar el Registro Nacional de Profesionistas.");
-  }
-
-  const data = await response.json();
-  return data?.response?.docs || [];
-};
-
-const findBestMatch = ({ docs, name, cedula }) => {
-  const cleanName = normalizeText(name);
-  const cleanCedula = String(cedula || "").trim();
-
-  const exactCedulaMatch = docs.find(
-    (doc) => String(doc.numCedula || "").trim() === cleanCedula
-  );
-
-  if (exactCedulaMatch) {
-    return exactCedulaMatch;
-  }
-
-  if (!cleanName) {
-    return null;
-  }
-
-  return (
-    docs.find((doc) => {
-      const docName = normalizeText(buildFullName(doc));
-      return docName.includes(cleanName) || cleanName.includes(docName);
-    }) || null
-  );
-};
-
-const validateWithDemoFallback = ({ name, cedula }) => {
-  const demoCedulas = ["12345678", "87654321", "11111111"];
-
-  if (demoCedulas.includes(String(cedula).trim())) {
+const validateMockCedula = ({ name, cedula, institution, graduationYear }) => {
+  if (String(cedula).trim() !== "12345678") {
     return {
-      valid: true,
-      message: "Cédula validada en modo demostración.",
-      data: {
-        name,
-        cedula,
-        profession: "LICENCIATURA EN PSICOLOGÍA",
-        institution: "Universidad de demostración",
-        year: "2026",
-        source: "demo",
-      },
+      status: "rejected",
+      nameMatch: false,
+      message: "No se encontró una cédula profesional válida.",
     };
   }
 
   return {
-    valid: false,
-    message:
-      "No se encontró una cédula válida de Psicología. Verifica el nombre y número de cédula.",
+    status: "approved",
+    nameMatch: true,
+    message: "Información profesional validada en modo local.",
+    professionalData: {
+      name,
+      institution,
+      graduationYear,
+      profession: "LICENCIATURA EN PSICOLOGÍA",
+      source: "mock",
+    },
   };
 };
 
-const validateCedula = async ({ name, cedula }) => {
-  if (!cedula || cedula.trim().length < 6) {
-    return {
-      valid: false,
-      message: "La cédula no tiene un formato válido.",
-    };
+const validateCedula = async (
+  { name, cedula, institution, graduationYear },
+  options = {}
+) => {
+  const env = options.env || process.env;
+  const fetchImpl = options.fetchImpl || global.fetch;
+
+  if (!name || !cedula || !institution || !graduationYear) {
+    return pendingResult("Faltan datos profesionales para completar la verificación.");
+  }
+
+  if (!/^\d{6,12}$/.test(String(cedula).trim())) {
+    return pendingResult("El número de cédula requiere revisión manual.");
+  }
+
+  if (isMockModeEnabled(env)) {
+    return validateMockCedula({ name, cedula, institution, graduationYear });
+  }
+
+  if (typeof fetchImpl !== "function") {
+    return pendingResult("El servicio profesional no está disponible.");
   }
 
   try {
-    const docs = await searchCedulaSEP({ name, cedula });
-    console.log("========== RESPUESTA SEP ==========");
-console.log(docs);
-console.log("==================================");
-    const match = findBestMatch({ docs, name, cedula });
+    const records = await searchCedulaSEP({
+      cedula,
+      fetchImpl,
+      timeoutMs: getSepTimeoutMs(env),
+    });
+    const cleanCedula = String(cedula).trim();
+    const record = records.find(
+      (item) => String(item.numCedula || "").trim() === cleanCedula
+    );
 
-    if (!match) {
-      return validateWithDemoFallback({ name, cedula });
+    if (!record) {
+      return {
+        status: "rejected",
+        nameMatch: false,
+        message: "SEP no confirmó la cédula profesional proporcionada.",
+      };
     }
 
-    if (!isPsychologyTitle(match.titulo)) {
+    if (!isPsychologyTitle(record.titulo)) {
       return {
-        valid: false,
-        message:
-          "La cédula existe, pero no corresponde a una formación en Psicología.",
-        data: {
-          name: buildFullName(match),
-          cedula: match.numCedula,
-          profession: match.titulo,
-          institution: match.institucion,
-          year: match.anioRegistro,
-          source: "sep",
-        },
+        status: "rejected",
+        nameMatch: null,
+        message: "La formación profesional registrada no corresponde a Psicología.",
+      };
+    }
+
+    const nameComparison = compareNames(name, buildFullName(record));
+
+    if (nameComparison.status === "contradiction") {
+      return {
+        status: "rejected",
+        nameMatch: false,
+        message: "El nombre declarado contradice el registro profesional.",
+      };
+    }
+
+    if (nameComparison.status === "ambiguous") {
+      return pendingResult("El nombre profesional requiere revisión manual.");
+    }
+
+    const institutionComparison = compareInstitutions(
+      institution,
+      record.institucion
+    );
+
+    if (institutionComparison === "contradiction") {
+      return {
+        status: "rejected",
+        nameMatch: true,
+        message: "La institución declarada contradice el registro profesional.",
+      };
+    }
+
+    if (institutionComparison === "ambiguous") {
+      return pendingResult("La institución profesional requiere revisión manual.");
+    }
+
+    if (
+      record.anioRegistro &&
+      String(record.anioRegistro).trim() !== String(graduationYear).trim()
+    ) {
+      return {
+        status: "rejected",
+        nameMatch: true,
+        message: "El año declarado contradice el registro profesional.",
       };
     }
 
     return {
-      valid: true,
-      message: "Cédula validada correctamente.",
-      data: {
-        name: buildFullName(match),
-        cedula: match.numCedula,
-        profession: match.titulo,
-        institution: match.institucion,
-        year: match.anioRegistro,
+      status: "approved",
+      nameMatch: true,
+      message: "La información profesional coincide con el registro consultado.",
+      professionalData: {
+        name: buildFullName(record),
+        institution: record.institucion || null,
+        graduationYear: record.anioRegistro || null,
+        profession: record.titulo,
         source: "sep",
       },
     };
   } catch (error) {
-    console.error("Error consultando SEP:", error.message);
-console.log("ERROR SEP");
-    console.log(error);
-
-    return validateWithDemoFallback({ name, cedula });
+    console.warn("Consulta SEP no disponible para verificación.");
+    return pendingResult("SEP no está disponible; la cuenta seguirá en revisión.");
   }
 };
 
 module.exports = {
   validateCedula,
+  isMockModeEnabled,
+  isPsychologyTitle,
+  getSepTimeoutMs,
 };

@@ -104,6 +104,8 @@
 }
 
 .psychologist-request span {
+  display: block;
+  margin-top: 4px;
   color: var(--text-secondary);
   font-size: 14px;
 }

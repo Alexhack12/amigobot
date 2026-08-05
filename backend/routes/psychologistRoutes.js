@@ -1,15 +1,40 @@
 const express = require("express");
+const multer = require("multer");
 const { db, admin } = require("../firebase/firebaseAdmin");
 const {
   verifyToken,
   requireApprovedPsychologist,
 } = require("../middleware/authMiddleware");
+const {
+  requirePendingPsychologist,
+  createVerificationRateLimit,
+} = require("../middleware/verificationGuards");
 const { validateCedula } = require("../services/cedulaService");
+const { analyzeIdentityDocument } = require("../services/aiService");
+const {
+  ID_DOCUMENT_FIELD,
+  VerificationFileError,
+  createIneUpload,
+  validateImageFile,
+} = require("../services/imageFileService");
+const {
+  createPsychologistVerificationHandler,
+} = require("../controllers/psychologistVerificationController");
 const {
   generateClinicalSummary,
 } = require("../services/clinicalSummaryService");
 
 const router = express.Router();
+const ineUpload = createIneUpload();
+const verificationRateLimit = createVerificationRateLimit();
+
+const verificationHandler = createPsychologistVerificationHandler({
+  db,
+  serverTimestamp: () => admin.firestore.FieldValue.serverTimestamp(),
+  validateCedula,
+  analyzeIdentityDocument,
+  validateImageFile,
+});
 
 const verifyPatientAccess = async (psychologistId, patientId) => {
   const linkSnapshot = await db
@@ -22,41 +47,37 @@ const verifyPatientAccess = async (psychologistId, patientId) => {
   return !linkSnapshot.empty;
 };
 
-router.post("/verify-cedula", verifyToken, async (req, res) => {
-  try {
-    const { name, cedula } = req.body;
+router.post(
+  "/verify-cedula",
+  verifyToken,
+  requirePendingPsychologist,
+  verificationRateLimit,
+  (req, res, next) => {
+    ineUpload.single(ID_DOCUMENT_FIELD)(req, res, (error) => {
+      if (!error) return next();
 
-    const result = await validateCedula({ name, cedula });
+      if (error instanceof multer.MulterError && error.code === "LIMIT_FILE_SIZE") {
+        return res.status(413).json({
+          message: "La imagen excede el tamaño máximo permitido.",
+        });
+      }
 
-    if (!result.valid) {
-      await db.collection("users").doc(req.user.uid).update({
-        verificationStatus: "rejected",
-        cedulaValidationMessage: result.message,
-      });
+      if (error instanceof VerificationFileError) {
+        return res.status(error.statusCode).json({ message: error.message });
+      }
 
-      return res.status(400).json(result);
+      return res.status(400).json({ message: "No se pudo procesar el archivo." });
+    });
+  },
+  verificationHandler,
+  (error, req, res, next) => {
+    if (error instanceof VerificationFileError) {
+      return res.status(error.statusCode).json({ message: error.message });
     }
 
-    await db.collection("users").doc(req.user.uid).update({
-      role: "psychologist",
-      cedula,
-      verificationStatus: "approved",
-      cedulaData: result.data,
-      verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    return res.json({
-      message: "Psicólogo verificado correctamente.",
-      result,
-    });
-  } catch (error) {
-    console.error("Error verificando cédula:", error);
-
-    return res.status(500).json({
-      message: "Error verificando cédula.",
-    });
+    return next(error);
   }
-});
+);
 
 router.post(
   "/generate-invite",

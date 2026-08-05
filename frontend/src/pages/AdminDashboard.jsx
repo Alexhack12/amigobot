@@ -22,7 +22,7 @@ function AdminDashboard() {
         .filter(
           (user) =>
             user.role === "psychologist" &&
-            user.verificationStatus === "pending"
+            ["pending", "rejected"].includes(user.verificationStatus)
         );
 
       setPsychologists(pending);
@@ -91,9 +91,31 @@ function AdminDashboard() {
           psychologists.map((psychologist) => (
             <div className="psychologist-request" key={psychologist.id}>
               <div>
-                <h3>{psychologist.name || "Sin nombre"}</h3>
+                <h3>
+                  {psychologist.declaredFullName || psychologist.name || "Sin nombre"}
+                </h3>
                 <p>{psychologist.email}</p>
                 <span>Cédula: {psychologist.cedula || "No registrada"}</span>
+                <span>
+                  Institución: {psychologist.declaredInstitution || "No registrada"}
+                </span>
+                <span>
+                  Año: {psychologist.declaredGraduationYear || "No registrado"}
+                </span>
+                <span>
+                  Resultado SEP: {psychologist.verificationChecks?.sepStatus || "pendiente"}
+                </span>
+                <span>
+                  Coincidencia de nombre:{" "}
+                  {psychologist.verificationChecks?.nameMatch === true
+                    ? "sí"
+                    : psychologist.verificationChecks?.nameMatch === false
+                      ? "no"
+                      : "por revisar"}
+                </span>
+                <span>
+                  Motivo: {psychologist.verificationMessage || "Revisión manual pendiente"}
+                </span>
               </div>
 
               <div className="request-actions">

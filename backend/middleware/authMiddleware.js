@@ -16,9 +16,9 @@ const verifyToken = async (req, res, next) => {
     const userDoc = await db.collection("users").doc(decodedToken.uid).get();
 
     req.user = {
+      ...userDoc.data(),
       uid: decodedToken.uid,
       email: decodedToken.email,
-      ...userDoc.data(),
     };
 
     next();

@@ -1,4 +1,5 @@
 import { auth } from "./firebase";
+import { buildPsychologistVerificationFormData } from "../utils/registrationFlow.js";
 
 const API_URL =
   import.meta.env.VITE_API_URL || "http://localhost:3001/api";
@@ -10,6 +11,40 @@ const getAuthToken = async () => {
   }
 
   return user.getIdToken();
+};
+
+export const verifyPsychologist = async ({
+  declaredFullName,
+  cedula,
+  declaredGraduationYear,
+  declaredInstitution,
+  documentConsent,
+  idDocument,
+}) => {
+  const token = await getAuthToken();
+  const formData = buildPsychologistVerificationFormData({
+    declaredFullName,
+    cedula,
+    declaredGraduationYear,
+    declaredInstitution,
+    documentConsent,
+    idDocument,
+  });
+
+  const response = await fetch(`${API_URL}/psychologists/verify-cedula`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+    body: formData,
+  });
+  const data = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(data.message || "No se pudo completar la verificación.");
+  }
+
+  return data;
 };
 
 export const sendChatMessage = async (message, conversationId) => {
