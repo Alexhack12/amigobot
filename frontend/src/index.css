@@ -1,62 +1,67 @@
 :root {
-  --bg-main: #f6f3ee;
-  --bg-card: #fffaf3;
-  --bg-soft: #ebe2d6;
-  --bg-input: #fffdf8;
+  --bg-main: #f5f2ed;
+  --bg-card: #fffdf9;
+  --bg-soft: #eee8df;
+  --bg-input: #ffffff;
 
-  --text-main: #2b2118;
-  --text-secondary: #7a6b5c;
-  --text-soft: #4f4034;
+  --text-main: #2d2722;
+  --text-secondary: #70655b;
+  --text-soft: #50463e;
 
-  --accent: #d88c5a;
-  --accent-soft: #f3c7a5;
-  --accent-dark: #9f5f3d;
+  --accent: #c9784a;
+  --accent-soft: #f0c8ad;
+  --accent-dark: #9f5734;
 
-  --danger: #b94a48;
-  --success: #5f8f6f;
+  --danger: #a94643;
+  --success: #507b61;
+  --warning: #a66d21;
 
-  --border-soft: rgba(91, 65, 43, 0.14);
-  --shadow-soft: 0 18px 45px rgba(70, 45, 25, 0.12);
+  --border-soft: rgba(78, 61, 47, 0.16);
+  --shadow-soft: 0 12px 32px rgba(60, 45, 33, 0.09);
 
-  --radius-sm: 10px;
-  --radius-md: 18px;
-  --radius-lg: 28px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --space-page: clamp(20px, 3vw, 40px);
+  --content-max: 1240px;
+  --control-height: 46px;
+  --focus-ring: 0 0 0 3px rgba(201, 120, 74, 0.22);
 }
 
 body.light-mode {
-  --bg-main: #f6f3ee;
-  --bg-card: #fffaf3;
-  --bg-soft: #ebe2d6;
-  --bg-input: #fffdf8;
+  --bg-main: #f5f2ed;
+  --bg-card: #fffdf9;
+  --bg-soft: #eee8df;
+  --bg-input: #ffffff;
 
-  --text-main: #2b2118;
-  --text-secondary: #7a6b5c;
-  --text-soft: #4f4034;
+  --text-main: #2d2722;
+  --text-secondary: #70655b;
+  --text-soft: #50463e;
 
-  --accent: #d88c5a;
-  --accent-soft: #f3c7a5;
-  --accent-dark: #9f5f3d;
+  --accent: #c9784a;
+  --accent-soft: #f0c8ad;
+  --accent-dark: #9f5734;
 
-  --border-soft: rgba(91, 65, 43, 0.14);
-  --shadow-soft: 0 18px 45px rgba(70, 45, 25, 0.12);
+  --border-soft: rgba(78, 61, 47, 0.16);
+  --shadow-soft: 0 12px 32px rgba(60, 45, 33, 0.09);
 }
 
 body:not(.light-mode) {
-  --bg-main: #171412;
-  --bg-card: #241f1b;
-  --bg-soft: #302923;
-  --bg-input: #1d1916;
+  --bg-main: #181614;
+  --bg-card: #221f1c;
+  --bg-soft: #2c2824;
+  --bg-input: #1b1917;
 
   --text-main: #fff7ed;
-  --text-secondary: #c0aa96;
-  --text-soft: #e3d2c0;
+  --text-secondary: #bdb2a8;
+  --text-soft: #e2d9d0;
 
-  --accent: #e7a16a;
+  --accent: #dfa070;
   --accent-soft: #5a3827;
   --accent-dark: #ffbd84;
 
-  --border-soft: rgba(255, 236, 216, 0.12);
-  --shadow-soft: 0 18px 45px rgba(0, 0, 0, 0.28);
+  --border-soft: rgba(255, 241, 226, 0.13);
+  --shadow-soft: 0 12px 30px rgba(0, 0, 0, 0.24);
 }
 
 * {
@@ -68,17 +73,26 @@ body:not(.light-mode) {
 html {
   background: var(--bg-main);
   scroll-behavior: smooth;
+  text-size-adjust: 100%;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
 }
 
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(216, 140, 90, 0.16), transparent 34%),
-    radial-gradient(circle at bottom right, rgba(95, 143, 111, 0.12), transparent 30%),
+    radial-gradient(circle at top left, rgba(201, 120, 74, 0.1), transparent 32%),
     var(--bg-main);
   color: var(--text-main);
-  font-family: "Inter", "Segoe UI", Arial, sans-serif;
-  letter-spacing: -0.01em;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  letter-spacing: -0.005em;
+  overflow-wrap: break-word;
 }
 
 button,
@@ -90,6 +104,7 @@ select {
 
 button {
   cursor: pointer;
+  min-height: 44px;
 }
 
 a {
@@ -170,7 +185,12 @@ input:focus,
 textarea:focus,
 select:focus {
   border-color: var(--accent);
-  box-shadow: 0 0 0 4px rgba(216, 140, 90, 0.14);
+  box-shadow: var(--focus-ring);
+}
+
+:where(button, a, input, textarea, select):focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 @media (max-width: 768px) {
@@ -259,5 +279,20 @@ select:focus {
     flex-direction: column;
     align-items: flex-start;
     gap: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
   }
 }

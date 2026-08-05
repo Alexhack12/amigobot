@@ -191,15 +191,127 @@
   }
 
   .new-chat,
-  .sidebar-btn,
-  .chat-item {
+  .sidebar-btn {
     font-size: 0;
     justify-content: center;
     min-width: 44px;
   }
 
+  .chat-item {
+    flex: 0 0 clamp(96px, 30vw, 140px);
+    width: clamp(96px, 30vw, 140px);
+    min-width: 96px;
+    min-height: 44px;
+    padding: 14px 12px;
+    overflow: hidden;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .chat-item.active {
+    border-left-color: var(--accent);
+    background: var(--bg-soft);
+    color: var(--text-main);
+    box-shadow: inset 0 0 0 1px var(--border-soft);
+  }
+
   .new-chat svg,
   .sidebar-btn svg {
     margin: 0;
+  }
+}
+
+/* Navegacion estable y tactil en escritorio y movil. */
+.sidebar {
+  position: sticky;
+  top: 0;
+  width: 264px;
+  height: 100dvh;
+  min-height: 0;
+  flex-shrink: 0;
+  padding: 22px 16px 18px;
+}
+
+.chat-list {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.new-chat,
+.sidebar-btn,
+.chat-item {
+  border-radius: var(--radius-sm);
+}
+
+.new-chat:hover,
+.sidebar-btn:hover,
+.chat-item:hover,
+.patient-row:hover {
+  transform: none;
+}
+
+@media (max-width: 768px) {
+  .sidebar {
+    position: relative;
+    z-index: 10;
+    width: 100%;
+    height: 68px;
+    min-height: 68px;
+    padding: 10px 12px;
+    gap: 8px;
+    overflow: hidden;
+  }
+
+  .sidebar-top {
+    min-width: auto;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .logo {
+    max-width: 82px;
+    margin: 0;
+    font-size: 1rem;
+    white-space: nowrap;
+  }
+
+  .chat-list {
+    min-width: 44px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+  }
+
+  .chat-list::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sidebar-bottom {
+    gap: 4px;
+    flex-shrink: 0;
+  }
+
+  .new-chat,
+  .sidebar-btn {
+    width: 44px;
+    min-width: 44px;
+    height: 44px;
+    padding: 0;
+    border-radius: var(--radius-sm);
+  }
+
+  .chat-item {
+    height: 44px;
+    border-radius: var(--radius-sm);
+  }
+}
+
+@media (max-width: 420px) {
+  .logo {
+    display: none;
   }
 }

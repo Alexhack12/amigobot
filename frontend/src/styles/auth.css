@@ -297,3 +297,123 @@
   color: inherit;
   font-size: inherit;
 }
+
+/* Pulido final: jerarquia y controles consistentes sin alterar el formulario. */
+.auth-page {
+  padding: clamp(18px, 4vw, 40px) 16px;
+  background:
+    linear-gradient(135deg, rgba(201, 120, 74, 0.08), transparent 42%),
+    var(--bg-main);
+}
+
+.auth-card {
+  max-width: 480px;
+  padding: clamp(24px, 4vw, 38px);
+  border-left-width: 1px;
+  border-radius: var(--radius-lg);
+}
+
+.auth-card h1 {
+  font-size: clamp(1.8rem, 5vw, 2.15rem);
+  line-height: 1.15;
+  letter-spacing: -0.025em;
+}
+
+.auth-form {
+  gap: 13px;
+}
+
+.auth-form > input,
+.professional-fields > input {
+  width: 100%;
+  min-height: var(--control-height);
+  padding: 12px 14px;
+  border-radius: var(--radius-sm);
+}
+
+.auth-form > button[type="submit"] {
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.auth-form .role-option {
+  min-height: 78px;
+  margin: 0;
+  padding: 14px;
+  border: 1px solid var(--border-soft);
+  border-radius: var(--radius-sm);
+  background: var(--bg-soft);
+  color: var(--text-main);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.auth-form .role-option:hover {
+  border-color: rgba(201, 120, 74, 0.45);
+  background: var(--bg-input);
+}
+
+.auth-form .role-option.selected {
+  border-color: var(--accent);
+  background: rgba(201, 120, 74, 0.09);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.auth-form .role-option span {
+  font-weight: 400;
+}
+
+.auth-file-label,
+.auth-consent {
+  border-radius: var(--radius-sm);
+}
+
+.auth-file-label {
+  padding: 14px 15px;
+}
+
+.auth-file-label input[type="file"]::file-selector-button {
+  min-height: 38px;
+  margin-right: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-soft);
+  border-radius: 7px;
+  background: var(--bg-soft);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.auth-consent {
+  min-height: 48px;
+  padding: 13px 14px;
+  cursor: pointer;
+}
+
+.auth-consent input[type="checkbox"] {
+  width: 20px;
+  height: 20px;
+}
+
+.auth-error {
+  font-weight: 600;
+}
+
+@media (max-width: 700px) {
+  .auth-page {
+    align-items: flex-start;
+    padding: 20px 14px;
+  }
+
+  .auth-card {
+    padding: 24px 20px;
+  }
+
+  .auth-card p {
+    margin-bottom: 22px;
+  }
+
+  .auth-form .role-option {
+    min-height: 70px;
+  }
+}

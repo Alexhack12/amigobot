@@ -62,3 +62,15 @@
     transform: scale(1.015);
   }
 }
+
+.typing-indicator {
+  padding: 11px 15px;
+  border-radius: var(--radius-md);
+  box-shadow: none;
+  animation: none;
+}
+
+.typing-indicator span {
+  width: 7px;
+  height: 7px;
+}

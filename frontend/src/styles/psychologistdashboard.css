@@ -894,3 +894,108 @@
     width: 100%;
   }
 }
+
+/* Pulido final del panel profesional. */
+.dashboard-page {
+  padding: var(--space-page);
+  background: var(--bg-main);
+}
+
+.dashboard-page > * {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.dashboard-header {
+  margin-bottom: 26px;
+  padding-bottom: 18px;
+}
+
+.dashboard-page h1 {
+  font-size: clamp(1.85rem, 4vw, 2.3rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.dashboard-grid,
+.stats-grid,
+.charts-grid {
+  gap: 16px;
+}
+
+.dashboard-card,
+.chart-card {
+  padding: clamp(19px, 2.5vw, 24px);
+  border-left-width: 1px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 7px 22px rgba(60, 45, 33, 0.06);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(201, 120, 74, 0.42);
+}
+
+.back-btn,
+.generate-code-btn,
+.task-form button {
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.back-btn:hover,
+.generate-code-btn:hover,
+.patient-row:hover,
+.patient-row.selected {
+  transform: none;
+}
+
+.patient-row,
+.history-item,
+.behavior-item,
+.risk-item,
+.task-item,
+.smart-section,
+.smart-tags-grid > div,
+.timeline-session {
+  border-radius: var(--radius-sm);
+}
+
+.task-form input,
+.task-form textarea,
+.chart-filter {
+  min-height: 44px;
+}
+
+.invite-code-box,
+.link-code {
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 768px) {
+  .dashboard-page {
+    padding: 18px 14px 28px;
+  }
+
+  .dashboard-header .back-btn,
+  .dashboard-header .generate-code-btn {
+    width: 100%;
+  }
+
+  .chart-header,
+  .factor-item,
+  .risk-item {
+    align-items: flex-start;
+  }
+
+  .chart-header {
+    flex-direction: column;
+  }
+
+  .chart-filter {
+    width: 100%;
+  }
+}

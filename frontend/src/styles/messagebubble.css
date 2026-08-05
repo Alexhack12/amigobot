@@ -108,3 +108,28 @@
     font-size: 0.92rem;
   }
 }
+
+/* Burbujas legibles sin aspecto flotante excesivo. */
+.message {
+  max-width: min(74%, 680px);
+  padding: 12px 15px;
+  border-radius: var(--radius-md);
+  line-height: 1.62;
+  animation-duration: 0.18s;
+}
+
+.bot {
+  box-shadow: none;
+}
+
+.user {
+  background: rgba(201, 120, 74, 0.14);
+}
+
+@media (max-width: 768px) {
+  .message {
+    max-width: 92%;
+    padding: 11px 13px;
+    font-size: 0.94rem;
+  }
+}

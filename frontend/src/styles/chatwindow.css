@@ -125,3 +125,53 @@
     padding: 22px;
   }
 }
+
+/* El chat conserva el campo de escritura visible y evita saltos de ancho. */
+.chat-window {
+  min-width: 0;
+  min-height: 0;
+  height: 100dvh;
+  padding: clamp(14px, 2.5vw, 24px);
+  background: var(--bg-main);
+  overflow: hidden;
+}
+
+.messages {
+  min-height: 0;
+  gap: 12px;
+  overscroll-behavior: contain;
+  scrollbar-gutter: stable;
+}
+
+.chat-empty-state {
+  border-left-width: 1px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 8px 24px rgba(60, 45, 33, 0.07);
+}
+
+.chat-guide {
+  border-left-width: 3px;
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 768px) {
+  .chat-window {
+    flex: 1;
+    height: auto;
+    min-height: 0;
+    padding: 10px 10px max(10px, env(safe-area-inset-bottom));
+  }
+
+  .messages {
+    gap: 10px;
+    padding: 4px 1px 12px;
+  }
+
+  .chat-empty-state {
+    padding: 20px 18px;
+  }
+
+  .chat-empty-state h2 {
+    font-size: 1.45rem;
+  }
+}
