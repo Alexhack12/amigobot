@@ -52,7 +52,7 @@
 
   border-radius: 4px;
 
-  animation: loadingSpin 1s linear infinite;
+  animation: loadingSpin 0.85s linear infinite;
 }
 
 .chat-loading button {
@@ -87,5 +87,36 @@
 
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* Pulido final del contenedor principal. */
+.home {
+  width: 100%;
+  height: 100dvh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-main);
+}
+
+.chat-loading h2 {
+  font-size: clamp(1.35rem, 4vw, 1.65rem);
+  font-weight: 700;
+}
+
+.chat-loading::before {
+  border-radius: 50%;
+}
+
+@media (max-width: 768px) {
+  .home {
+    height: 100dvh;
+    min-height: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-loading::before {
+    animation: loadingSpin 1.8s linear infinite !important;
   }
 }

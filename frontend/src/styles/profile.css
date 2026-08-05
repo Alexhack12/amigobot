@@ -249,3 +249,47 @@
     height: 72px;
   }
 }
+
+/* Pulido final de perfil. */
+.profile-page {
+  padding: var(--space-page);
+  background: var(--bg-main);
+}
+
+.profile-card {
+  max-width: 960px;
+  padding: clamp(22px, 3vw, 32px);
+  border-radius: var(--radius-lg);
+}
+
+.profile-header h1 {
+  font-size: clamp(1.8rem, 4vw, 2.15rem);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.profile-avatar,
+.profile-photo,
+.profile-info-card,
+.profile-summary {
+  border-radius: var(--radius-sm);
+}
+
+.profile-info-card:hover,
+.profile-action-btn:hover {
+  transform: none;
+}
+
+.profile-back,
+.profile-action-btn,
+.upload-photo-btn {
+  min-height: 44px;
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+@media (max-width: 900px) {
+  .profile-page {
+    padding: 18px 14px 28px;
+  }
+}

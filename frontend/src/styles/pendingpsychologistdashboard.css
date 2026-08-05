@@ -190,3 +190,40 @@
     flex-direction: column;
   }
 }
+
+/* Estado de revision claro, sobrio y legible. */
+.pending-dashboard {
+  padding: clamp(18px, 4vw, 40px);
+  background: var(--bg-main);
+}
+
+.pending-card {
+  max-width: 700px;
+  padding: clamp(24px, 4vw, 36px);
+  border-left-width: 1px;
+  border-top: 4px solid var(--warning);
+  border-radius: var(--radius-lg);
+}
+
+.pending-badge {
+  color: var(--warning);
+  border-radius: 999px;
+  letter-spacing: 0.06em;
+}
+
+.pending-card h1 {
+  font-size: clamp(1.8rem, 5vw, 2.15rem);
+  line-height: 1.2;
+  letter-spacing: -0.025em;
+}
+
+.pending-info,
+.pending-status-item {
+  border-radius: var(--radius-sm);
+}
+
+.pending-btn {
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}

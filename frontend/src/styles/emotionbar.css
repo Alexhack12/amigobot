@@ -104,3 +104,12 @@
     #14b8a6
   );
 }
+
+.emotion-track {
+  height: 8px;
+  border-radius: 999px;
+}
+
+.emotion-fill {
+  border-radius: inherit;
+}

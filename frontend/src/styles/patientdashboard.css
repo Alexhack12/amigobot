@@ -400,3 +400,77 @@
 }
 
 }
+
+/* Pulido final del panel de usuario. */
+.patient-dashboard {
+  padding: var(--space-page);
+  background: var(--bg-main);
+}
+
+.patient-dashboard > * {
+  width: 100%;
+  max-width: var(--content-max);
+  margin-inline: auto;
+}
+
+.patient-hero {
+  padding: clamp(22px, 3vw, 30px);
+  border-left-width: 1px;
+  border-radius: var(--radius-md);
+}
+
+.patient-hero h1 {
+  font-size: clamp(1.8rem, 4vw, 2.25rem);
+  line-height: 1.18;
+  letter-spacing: -0.025em;
+}
+
+.patient-grid {
+  gap: 16px;
+  margin-top: 22px;
+}
+
+.patient-card {
+  padding: 22px;
+  border-left-width: 1px;
+  border-radius: var(--radius-md);
+  box-shadow: 0 7px 22px rgba(60, 45, 33, 0.06);
+}
+
+.patient-card:hover {
+  transform: translateY(-1px);
+  border-color: rgba(201, 120, 74, 0.42);
+}
+
+.primary-dashboard-btn,
+.link-form button,
+.patient-task-item button {
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
+  font-weight: 700;
+}
+
+.link-form input {
+  min-width: 0;
+  min-height: var(--control-height);
+  border-radius: var(--radius-sm);
+}
+
+.patient-task-item {
+  border-radius: var(--radius-sm);
+}
+
+@media (max-width: 900px) {
+  .patient-dashboard {
+    padding: 18px 14px 28px;
+  }
+
+  .patient-hero {
+    gap: 18px;
+  }
+
+  .primary-dashboard-btn {
+    width: 100%;
+    text-align: center;
+  }
+}
