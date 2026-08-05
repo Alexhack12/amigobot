@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import {
   GoogleAuthProvider,
@@ -7,6 +7,10 @@ import {
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, db } from "../services/firebase";
+import {
+  clearBlockedAuthNotice,
+  getBlockedAuthNotice,
+} from "../services/realtimeUserAccess";
 import "../styles/auth.css";
 
 function Login() {
@@ -16,8 +20,17 @@ function Login() {
   const [password, setPassword] = useState("");
 
   const [error, setError] = useState("");
+  const [authNotice] = useState(
+    () => getBlockedAuthNotice(window.sessionStorage) || ""
+  );
   const [loading, setLoading] = useState(false);
   const [googleLoading, setGoogleLoading] = useState(false);
+
+  useEffect(() => {
+    if (authNotice) {
+      clearBlockedAuthNotice(window.sessionStorage);
+    }
+  }, [authNotice]);
 
   const syncGoogleUser = async (user) => {
     const userRef = doc(db, "users", user.uid);
@@ -108,7 +121,9 @@ function Login() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          {error && <p className="auth-error">{error}</p>}
+          {(error || authNotice) && (
+            <p className="auth-error">{error || authNotice}</p>
+          )}
 
           <button type="button" onClick={handleLogin} disabled={loading}>
             {loading ? "Entrando..." : "Entrar"}

@@ -11,6 +11,7 @@ import Settings from "./pages/Settings";
 import DashboardRouter from "./pages/DashboardRouter";
 
 import ProtectedRoute from "./components/ProtectedRoute";
+import AuthProvider from "./context/AuthProvider";
 
 import "./index.css";
 
@@ -29,7 +30,8 @@ function App() {
 
   return (
     <BrowserRouter>
-      <Routes>
+      <AuthProvider>
+        <Routes>
         {/* Públicas */}
         <Route path="/" element={<Welcome />} />
         <Route path="/login" element={<Login />} />
@@ -84,7 +86,8 @@ function App() {
             </ProtectedRoute>
           }
         />
-      </Routes>
+        </Routes>
+      </AuthProvider>
     </BrowserRouter>
   );
 }
