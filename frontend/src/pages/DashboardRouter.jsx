@@ -39,7 +39,6 @@ function DashboardRouter() {
             ...userSnap.data(),
           };
 
-          console.log("DashboardRouter userData:", data);
           setUserData(data);
         } else {
           const newUserData = {
@@ -47,6 +46,7 @@ function DashboardRouter() {
             name: currentUser.displayName || "Usuario",
             email: currentUser.email,
             role: "patient",
+            cedula: null,
             verificationStatus: "approved",
             blocked: false,
             createdAt: serverTimestamp(),

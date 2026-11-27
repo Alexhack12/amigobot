@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
-import { collection, getDocs, doc, updateDoc } from "firebase/firestore";
-import { db } from "../services/firebase";
+import {
+  approvePsychologist as approvePsychologistRequest,
+  getPendingPsychologists,
+  rejectPsychologist as rejectPsychologistRequest,
+} from "../services/api";
 import "../styles/admindashboard.css";
 
 function AdminDashboard() {
@@ -11,21 +14,7 @@ function AdminDashboard() {
     try {
       setLoading(true);
 
-      const usersRef = collection(db, "users");
-      const snapshot = await getDocs(usersRef);
-
-      const pending = snapshot.docs
-        .map((document) => ({
-          id: document.id,
-          ...document.data(),
-        }))
-        .filter(
-          (user) =>
-            user.role === "psychologist" &&
-            user.verificationStatus === "pending"
-        );
-
-      setPsychologists(pending);
+      setPsychologists(await getPendingPsychologists());
     } catch (error) {
       console.error("Error cargando psicólogos:", error);
     } finally {
@@ -35,11 +24,7 @@ function AdminDashboard() {
 
   const approvePsychologist = async (id) => {
     try {
-      const userRef = doc(db, "users", id);
-
-      await updateDoc(userRef, {
-        verificationStatus: "approved",
-      });
+      await approvePsychologistRequest(id);
 
       await loadPendingPsychologists();
     } catch (error) {
@@ -49,11 +34,7 @@ function AdminDashboard() {
 
   const rejectPsychologist = async (id) => {
     try {
-      const userRef = doc(db, "users", id);
-
-      await updateDoc(userRef, {
-        verificationStatus: "rejected",
-      });
+      await rejectPsychologistRequest(id);
 
       await loadPendingPsychologists();
     } catch (error) {

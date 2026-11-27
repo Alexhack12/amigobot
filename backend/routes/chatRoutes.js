@@ -2,6 +2,17 @@ const express = require("express");
 const { db, admin } = require("../firebase/firebaseAdmin");
 const { verifyToken } = require("../middleware/authMiddleware");
 const { analyzeMessage } = require("../services/aiService");
+const {
+  requireDocumentId,
+  requirePlainObject,
+  requireString,
+  sendValidationError,
+} = require("../services/securityValidation");
+const {
+  serializeChatReply,
+  serializePatientConversation,
+  serializePatientMessage,
+} = require("../services/patientResponseService");
 
 const router = express.Router();
 
@@ -116,6 +127,7 @@ const getRecentConversationMessages = async (userId, conversationId) => {
       const data = doc.data();
 
       return {
+        userId: data.userId,
         sender: data.sender,
         text: data.text,
         createdAt: data.createdAt,
@@ -123,6 +135,7 @@ const getRecentConversationMessages = async (userId, conversationId) => {
     })
     .filter(
       (msg) =>
+        msg.userId === userId &&
         typeof msg.text === "string" &&
         msg.text.trim().length > 0
     )
@@ -147,10 +160,6 @@ const getRecentConversationMessages = async (userId, conversationId) => {
           : "user",
       content: msg.text.trim(),
     }));
-
-  console.log(
-    `[AmigoBot memoria] conversación ${conversationId}: ${recentMessages.length} mensajes`
-  );
 
   return recentMessages;
 };
@@ -227,35 +236,7 @@ router.get("/conversations", verifyToken, async (req, res) => {
       .get();
 
     const conversations = snapshot.docs
-      .map((doc) => {
-        const data = doc.data();
-
-        return {
-          id: doc.id,
-          title: data.title || "Conversación",
-          summary: data.summary || "",
-          dominantEmotion: data.dominantEmotion || "stable",
-          riskLevel: data.riskLevel || "low",
-          behaviorChange: data.behaviorChange || "",
-          behaviorSignals: data.behaviorSignals || [],
-          influencingFactors: data.influencingFactors || [],
-          trend: data.trend || "",
-          repeatedFactors: data.repeatedFactors || [],
-          emergingFactors: data.emergingFactors || [],
-          recommendations: data.recommendations || [],
-          messageCount: data.messageCount || 0,
-          updatedAt: data.updatedAt
-            ? data.updatedAt.toDate().toISOString()
-            : null,
-          messages: [
-            {
-              sender: "bot",
-              text:
-                "Hola, soy AmigoBot. Estoy aquí para escucharte. ¿Qué ha cambiado en tu conducta últimamente?",
-            },
-          ],
-        };
-      })
+      .map(serializePatientConversation)
       .sort((a, b) => {
         if (!a.updatedAt) return 1;
         if (!b.updatedAt) return -1;
@@ -276,7 +257,10 @@ router.get(
   verifyToken,
   async (req, res) => {
     try {
-      const { conversationId } = req.params;
+      const conversationId = requireDocumentId(
+        req.params.conversationId,
+        "La conversación"
+      );
 
       const conversationRef = db
         .collection("conversations")
@@ -304,26 +288,7 @@ router.get(
         .get();
 
       const messages = snapshot.docs
-        .map((doc) => {
-          const data = doc.data();
-
-          return {
-            id: doc.id,
-            sender:
-              data.sender === "assistant"
-                ? "bot"
-                : data.sender === "patient"
-                  ? "user"
-                  : data.sender,
-            text: data.text || "",
-            emotion: data.emotion || null,
-            riskLevel: data.riskLevel || null,
-            createdAt:
-              typeof data.createdAt?.toDate === "function"
-                ? data.createdAt.toDate().toISOString()
-                : null,
-          };
-        })
+        .map(serializePatientMessage)
         .filter(
           (message) =>
             typeof message.text === "string" &&
@@ -353,6 +318,8 @@ router.get(
               ],
       });
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error(
         "Error obteniendo mensajes de conversación:",
         error
@@ -366,19 +333,15 @@ router.get(
 );
 router.post("/message", verifyToken, async (req, res) => {
   try {
-    const { message, conversationId } = req.body;
-
-    if (!message || !message.trim()) {
-      return res.status(400).json({
-        message: "El mensaje no puede estar vacío.",
-      });
-    }
-
-    if (!conversationId) {
-      return res.status(400).json({
-        message: "Falta conversationId.",
-      });
-    }
+    requirePlainObject(req.body);
+    const message = requireString(req.body.message, "El mensaje", {
+      minLength: 1,
+      maxLength: 4000,
+    });
+    const conversationId = requireDocumentId(
+      req.body.conversationId,
+      "La conversación"
+    );
 
     const blockStatus = await checkUserBlocked(req.user.uid);
 
@@ -417,7 +380,6 @@ const recentMessages =
     conversationId
   );
 
-console.log(recentMessages);
 const aiResult = await analyzeMessage(
   message,
   memoryContext,
@@ -491,21 +453,10 @@ const aiResult = await analyzeMessage(
       createdAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
-    return res.json({
-      reply: aiResult.reply,
-      conversationTitle: newTitle,
-      emotion: aiResult.emotion,
-      riskLevel: aiResult.riskLevel,
-      summary: aiResult.summary,
-      behaviorChange: aiResult.behaviorChange,
-      behaviorSignals: aiResult.behaviorSignals || [],
-      influencingFactors: aiResult.factors || [],
-      trend: aiResult.trend || "",
-      repeatedFactors: aiResult.repeatedFactors || [],
-      emergingFactors: aiResult.emergingFactors || [],
-      recommendations: aiResult.recommendations || [],
-    });
+    return res.json(serializeChatReply(aiResult, newTitle));
   } catch (error) {
+    if (sendValidationError(res, error)) return;
+
     console.error("Error en chat:", error);
 
     return res.status(500).json({

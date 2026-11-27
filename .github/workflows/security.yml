@@ -1,0 +1,50 @@
+name: Security and stability checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Use supported Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+
+      - name: Install root dependencies without lifecycle scripts
+        run: npm ci --ignore-scripts
+
+      - name: Install backend dependencies without lifecycle scripts
+        run: npm --prefix backend ci --ignore-scripts
+
+      - name: Install frontend dependencies without lifecycle scripts
+        run: npm --prefix frontend ci --ignore-scripts
+
+      - name: Run tests
+        run: npm test
+
+      - name: Check backend syntax
+        run: npm --prefix backend run check
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Audit dependencies
+        run: npm run security:audit

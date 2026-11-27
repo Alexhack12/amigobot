@@ -1,6 +1,7 @@
 import { auth } from "./firebase";
 
-const API_URL = "http://localhost:3001/api";
+const API_URL =
+  import.meta.env.VITE_API_URL || "http://localhost:3001/api";
 
 export const apiRequest = async (endpoint, options = {}) => {
   const user = auth.currentUser;

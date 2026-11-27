@@ -302,3 +302,41 @@ export const getClinicalSummary = async (patientId) => {
 
   return data;
 };
+
+export const getPendingPsychologists = async () => {
+  const token = await getAuthToken();
+  const response = await fetch(`${API_URL}/admin/pending-psychologists`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "Error obteniendo solicitudes pendientes.");
+  }
+
+  return data;
+};
+
+const updatePsychologistVerification = async (psychologistId, decision) => {
+  const token = await getAuthToken();
+  const response = await fetch(
+    `${API_URL}/admin/${decision}-psychologist/${encodeURIComponent(psychologistId)}`,
+    {
+      method: "PATCH",
+      headers: { Authorization: `Bearer ${token}` },
+    }
+  );
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.message || "No se pudo actualizar la solicitud.");
+  }
+
+  return data;
+};
+
+export const approvePsychologist = (psychologistId) =>
+  updatePsychologistVerification(psychologistId, "approve");
+
+export const rejectPsychologist = (psychologistId) =>
+  updatePsychologistVerification(psychologistId, "reject");

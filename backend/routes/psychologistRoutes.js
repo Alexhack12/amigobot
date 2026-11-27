@@ -8,41 +8,76 @@ const { validateCedula } = require("../services/cedulaService");
 const {
   generateClinicalSummary,
 } = require("../services/clinicalSummaryService");
+const {
+  createAccessControlService,
+} = require("../services/accessControlService");
+const {
+  generateInviteCode,
+  optionalString,
+  requireBoolean,
+  requireDocumentId,
+  requirePlainObject,
+  requireString,
+  sendValidationError,
+} = require("../services/securityValidation");
 
 const router = express.Router();
-
-const verifyPatientAccess = async (psychologistId, patientId) => {
-  const linkSnapshot = await db
-    .collection("psychologistPatients")
-    .where("psychologistId", "==", psychologistId)
-    .where("patientId", "==", patientId)
-    .where("active", "==", true)
-    .get();
-
-  return !linkSnapshot.empty;
-};
+const { verifyPatientAccess } = createAccessControlService(db);
 
 router.post("/verify-cedula", verifyToken, async (req, res) => {
   try {
-    const { name, cedula } = req.body;
+    if (req.user.role !== "psychologist") {
+      return res.status(403).json({
+        message: "Solo una cuenta registrada como psicólogo puede verificarse.",
+      });
+    }
+
+    if (req.user.verificationStatus === "approved") {
+      return res.status(409).json({
+        message: "La cuenta profesional ya está aprobada.",
+      });
+    }
+
+    requirePlainObject(req.body);
+    const name = requireString(req.body.name, "El nombre", {
+      minLength: 2,
+      maxLength: 120,
+    });
+    const cedula = requireString(req.body.cedula, "La cédula", {
+      minLength: 6,
+      maxLength: 20,
+      pattern: /^\d+$/,
+    });
 
     const result = await validateCedula({ name, cedula });
+    const userRef = db.collection("users").doc(req.user.uid);
 
-    if (!result.valid) {
-      await db.collection("users").doc(req.user.uid).update({
+    if (result.status === "pending") {
+      await userRef.update({
+        verificationStatus: "pending",
+        cedula,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      return res.status(202).json(result);
+    }
+
+    if (result.status === "rejected") {
+      await userRef.update({
         verificationStatus: "rejected",
-        cedulaValidationMessage: result.message,
+        cedula,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
       return res.status(400).json(result);
     }
 
-    await db.collection("users").doc(req.user.uid).update({
-      role: "psychologist",
+    await userRef.update({
       cedula,
       verificationStatus: "approved",
       cedulaData: result.data,
       verifiedAt: admin.firestore.FieldValue.serverTimestamp(),
+      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
 
     return res.json({
@@ -50,6 +85,8 @@ router.post("/verify-cedula", verifyToken, async (req, res) => {
       result,
     });
   } catch (error) {
+    if (sendValidationError(res, error)) return;
+
     console.error("Error verificando cédula:", error);
 
     return res.status(500).json({
@@ -64,18 +101,33 @@ router.post(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const code = Math.random().toString(36).substring(2, 8).toUpperCase();
+      let code;
+      let inviteRef;
 
-      await db.collection("invitationCodes").doc(code).set({
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        code = generateInviteCode();
+        inviteRef = db.collection("invitationCodes").doc(code);
+        const existing = await inviteRef.get();
+        if (!existing.exists) break;
+        inviteRef = null;
+      }
+
+      if (!inviteRef) {
+        throw new Error("No fue posible generar un código único.");
+      }
+
+      await inviteRef.set({
         code,
         psychologistId: req.user.uid,
         used: false,
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
       });
 
       return res.json({
         message: "Código generado",
         code,
+        expiresInSeconds: 24 * 60 * 60,
       });
     } catch (error) {
       console.error("Error generando código:", error);
@@ -96,6 +148,7 @@ router.get(
       const snapshot = await db
         .collection("psychologistPatients")
         .where("psychologistId", "==", req.user.uid)
+        .where("active", "==", true)
         .get();
 
       const patients = snapshot.docs.map((doc) => ({
@@ -120,7 +173,7 @@ router.get(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -167,6 +220,8 @@ router.get(
 
       return res.json(reports);
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error obteniendo reportes del paciente:", error);
 
       return res.status(500).json({
@@ -182,7 +237,7 @@ router.get(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -230,6 +285,8 @@ router.get(
 
       return res.json(conversations);
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error obteniendo conversaciones del paciente:", error);
 
       return res.status(500).json({
@@ -245,7 +302,7 @@ router.get(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -312,6 +369,8 @@ router.get(
 
       return res.json(summary);
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error generando resumen clínico:", error);
 
       return res.status(500).json({
@@ -327,14 +386,18 @@ router.post(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
-      const { title, description, dueDate } = req.body;
-
-      if (!title || !title.trim()) {
-        return res.status(400).json({
-          message: "El título de la tarea es obligatorio.",
-        });
-      }
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
+      requirePlainObject(req.body);
+      const title = requireString(req.body.title, "El título", {
+        minLength: 1,
+        maxLength: 160,
+      });
+      const description = optionalString(req.body.description, "La descripción", {
+        maxLength: 2000,
+      });
+      const dueDate = optionalString(req.body.dueDate, "La fecha límite", {
+        maxLength: 40,
+      });
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -347,8 +410,8 @@ router.post(
       const taskRef = await db.collection("patientTasks").add({
         psychologistId: req.user.uid,
         patientId,
-        title: title.trim(),
-        description: description?.trim() || "",
+        title,
+        description,
         dueDate: dueDate || null,
         status: "pending",
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
@@ -360,6 +423,8 @@ router.post(
         taskId: taskRef.id,
       });
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error creando tarea:", error);
 
       return res.status(500).json({
@@ -375,7 +440,7 @@ router.get(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -416,6 +481,8 @@ router.get(
 
       return res.json(tasks);
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error obteniendo tareas:", error);
 
       return res.status(500).json({
@@ -431,8 +498,9 @@ router.patch(
   requireApprovedPsychologist,
   async (req, res) => {
     try {
-      const { patientId } = req.params;
-      const { blocked } = req.body;
+      const patientId = requireDocumentId(req.params.patientId, "El paciente");
+      requirePlainObject(req.body);
+      const blocked = requireBoolean(req.body.blocked, "blocked");
 
       const hasAccess = await verifyPatientAccess(req.user.uid, patientId);
 
@@ -453,7 +521,7 @@ router.patch(
 
       linkSnapshot.docs.forEach((doc) => {
         batch.update(doc.ref, {
-          blocked: Boolean(blocked),
+          blocked,
           blockedAt: blocked
             ? admin.firestore.FieldValue.serverTimestamp()
             : null,
@@ -461,7 +529,7 @@ router.patch(
       });
 
       batch.update(db.collection("users").doc(patientId), {
-        blocked: Boolean(blocked),
+        blocked,
         blockedByPsychologistId: blocked ? req.user.uid : null,
       });
 
@@ -471,9 +539,11 @@ router.patch(
         message: blocked
           ? "Paciente bloqueado correctamente."
           : "Paciente desbloqueado correctamente.",
-        blocked: Boolean(blocked),
+        blocked,
       });
     } catch (error) {
+      if (sendValidationError(res, error)) return;
+
       console.error("Error actualizando bloqueo:", error);
 
       return res.status(500).json({

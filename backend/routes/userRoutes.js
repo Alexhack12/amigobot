@@ -1,6 +1,20 @@
 const express = require("express");
 const { db, admin } = require("../firebase/firebaseAdmin");
-const { verifyToken } = require("../middleware/authMiddleware");
+const {
+  verifyFirebaseToken,
+  verifyToken,
+} = require("../middleware/authMiddleware");
+const {
+  requireDocumentId,
+  requireInviteCode,
+  requirePlainObject,
+  requireString,
+  sendValidationError,
+} = require("../services/securityValidation");
+const {
+  buildExistingUserSync,
+  buildNewUserProfile,
+} = require("../services/userSyncService");
 
 const router = express.Router();
 
@@ -15,9 +29,17 @@ router.get("/me", verifyToken, async (req, res) => {
       });
     }
 
+    const data = userDoc.data();
+
     return res.json({
       id: userDoc.id,
-      ...userDoc.data(),
+      uid: req.user.uid,
+      name: data.name || "Usuario",
+      email: req.user.email,
+      role: data.role,
+      verificationStatus: data.verificationStatus,
+      blocked: data.blocked === true,
+      cedula: data.role === "psychologist" ? data.cedula || null : null,
     });
   } catch (error) {
     console.error("Error obteniendo usuario:", error);
@@ -28,32 +50,71 @@ router.get("/me", verifyToken, async (req, res) => {
   }
 });
 
-router.post("/sync", verifyToken, async (req, res) => {
+router.post("/sync", verifyFirebaseToken, async (req, res) => {
   try {
-    const { name, role, cedula } = req.body;
+    requirePlainObject(req.body);
 
-    const safeRole = role === "psychologist" ? "psychologist" : "patient";
+    const name = requireString(req.body.name, "El nombre", {
+      minLength: 2,
+      maxLength: 120,
+    });
+    const requestedRole = req.body.role;
 
-    const userData = {
-      uid: req.user.uid,
-      email: req.user.email,
-      name: name || req.user.name || "Usuario",
-      role: safeRole,
-      cedula: safeRole === "psychologist" ? cedula || null : null,
-      verificationStatus: safeRole === "psychologist" ? "pending" : "approved",
-      blocked: false,
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-    };
+    if (!["patient", "psychologist"].includes(requestedRole)) {
+      return res.status(400).json({ message: "El rol solicitado no es válido." });
+    }
 
-    await db.collection("users").doc(req.user.uid).set(userData, {
-      merge: true,
+    const cedula =
+      requestedRole === "psychologist"
+        ? requireString(req.body.cedula, "La cédula", {
+            minLength: 6,
+            maxLength: 20,
+            pattern: /^\d+$/,
+          })
+        : null;
+
+    const userRef = db.collection("users").doc(req.authUser.uid);
+    let responseUser;
+
+    await db.runTransaction(async (transaction) => {
+      const existingDoc = await transaction.get(userRef);
+
+      if (existingDoc.exists) {
+        const existing = existingDoc.data();
+        const { update, response } = buildExistingUserSync({
+          existing,
+          name,
+          tokenEmail: req.authUser.email,
+          timestamp: admin.firestore.FieldValue.serverTimestamp(),
+        });
+
+        transaction.set(userRef, update, { merge: true });
+        responseUser = {
+          uid: req.authUser.uid,
+          ...response,
+        };
+        return;
+      }
+
+      responseUser = buildNewUserProfile({
+        uid: req.authUser.uid,
+        tokenEmail: req.authUser.email,
+        name,
+        requestedRole,
+        cedula,
+        timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      transaction.create(userRef, responseUser);
     });
 
     return res.json({
       message: "Usuario sincronizado",
-      user: userData,
+      user: responseUser,
     });
   } catch (error) {
+    if (sendValidationError(res, error)) return;
+
     console.error("Error sincronizando usuario:", error);
 
     return res.status(500).json({
@@ -64,73 +125,88 @@ router.post("/sync", verifyToken, async (req, res) => {
 
 router.post("/link-psychologist", verifyToken, async (req, res) => {
   try {
-    const { code } = req.body;
+    requirePlainObject(req.body);
+    const code = requireInviteCode(req.body.code);
 
-    if (!code) {
-      return res.status(400).json({
-        message: "Código requerido.",
-      });
-    }
-
-    const inviteRef = db.collection("invitationCodes").doc(code.toUpperCase());
-    const inviteDoc = await inviteRef.get();
-
-    if (!inviteDoc.exists) {
-      return res.status(404).json({
-        message: "Código inválido.",
-      });
-    }
-
-    const inviteData = inviteDoc.data();
-
-    if (inviteData.used) {
-      return res.status(400).json({
-        message: "Este código ya fue utilizado.",
-      });
-    }
-
+    const inviteRef = db.collection("invitationCodes").doc(code);
     const patientRef = db.collection("users").doc(req.user.uid);
-    const patientDoc = await patientRef.get();
+    const linkRef = db.collection("psychologistPatients").doc();
 
-    if (!patientDoc.exists) {
-      return res.status(404).json({
-        message: "Paciente no encontrado.",
+    await db.runTransaction(async (transaction) => {
+      const [inviteDoc, patientDoc] = await Promise.all([
+        transaction.get(inviteRef),
+        transaction.get(patientRef),
+      ]);
+
+      if (!inviteDoc.exists) {
+        const error = new Error("Código inválido.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      if (!patientDoc.exists) {
+        const error = new Error("Paciente no encontrado.");
+        error.statusCode = 404;
+        throw error;
+      }
+
+      const inviteData = inviteDoc.data();
+      const patientData = patientDoc.data();
+
+      if (patientData.role !== "patient") {
+        const error = new Error(
+          "Solo los pacientes pueden vincularse con un psicólogo."
+        );
+        error.statusCode = 403;
+        throw error;
+      }
+
+      if (inviteData.used === true) {
+        const error = new Error("Este código ya fue utilizado.");
+        error.statusCode = 409;
+        throw error;
+      }
+
+      const createdAtMillis = inviteData.createdAt?.toMillis?.() || 0;
+      const expiresAtMillis =
+        inviteData.expiresAt?.toMillis?.() ||
+        (createdAtMillis ? createdAtMillis + 24 * 60 * 60 * 1000 : 0);
+
+      if (!expiresAtMillis || expiresAtMillis <= Date.now()) {
+        const error = new Error("Este código ha expirado.");
+        error.statusCode = 410;
+        throw error;
+      }
+
+      transaction.create(linkRef, {
+        psychologistId: inviteData.psychologistId,
+        patientId: req.user.uid,
+        patientName: patientData.name || "Paciente",
+        patientEmail: patientData.email || req.user.email,
+        active: true,
+        blocked: false,
+        linkedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-    }
-
-    const patientData = patientDoc.data();
-
-    if (patientData.role !== "patient") {
-      return res.status(403).json({
-        message: "Solo los pacientes pueden vincularse con un psicólogo.",
+      transaction.update(inviteRef, {
+        used: true,
+        usedBy: req.user.uid,
+        usedAt: admin.firestore.FieldValue.serverTimestamp(),
       });
-    }
-
-    await db.collection("psychologistPatients").add({
-      psychologistId: inviteData.psychologistId,
-      patientId: req.user.uid,
-      patientName: patientData.name || "Paciente",
-      patientEmail: patientData.email || req.user.email,
-      active: true,
-      blocked: false,
-      linkedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    await inviteRef.update({
-      used: true,
-      usedBy: req.user.uid,
-      usedAt: admin.firestore.FieldValue.serverTimestamp(),
-    });
-
-    await patientRef.update({
-      linkedPsychologistId: inviteData.psychologistId,
-      blocked: false,
+      transaction.update(patientRef, {
+        linkedPsychologistId: inviteData.psychologistId,
+      });
     });
 
     return res.json({
       message: "Paciente vinculado correctamente.",
     });
   } catch (error) {
+    if (sendValidationError(res, error)) return;
+
+    if (error.statusCode) {
+      return res.status(error.statusCode).json({ message: error.message });
+    }
+
     console.error("Error vinculando psicólogo:", error);
 
     return res.status(500).json({
@@ -178,7 +254,7 @@ router.get("/tasks", verifyToken, async (req, res) => {
 
 router.patch("/tasks/:taskId/complete", verifyToken, async (req, res) => {
   try {
-    const { taskId } = req.params;
+    const taskId = requireDocumentId(req.params.taskId, "La tarea");
 
     const taskRef = db.collection("patientTasks").doc(taskId);
     const taskDoc = await taskRef.get();
@@ -207,6 +283,8 @@ router.patch("/tasks/:taskId/complete", verifyToken, async (req, res) => {
       message: "Tarea marcada como completada.",
     });
   } catch (error) {
+    if (sendValidationError(res, error)) return;
+
     console.error("Error completando tarea:", error);
 
     return res.status(500).json({

@@ -1,0 +1,71 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function ownsDocument(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function validNewUser(userId) {
+      let data = request.resource.data;
+
+      return ownsDocument(userId)
+        && data.keys().hasOnly([
+          'uid',
+          'name',
+          'email',
+          'role',
+          'cedula',
+          'verificationStatus',
+          'blocked',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasAll([
+          'uid',
+          'name',
+          'email',
+          'role',
+          'cedula',
+          'verificationStatus',
+          'createdAt'
+        ])
+        && data.uid == request.auth.uid
+        && data.email == request.auth.token.email
+        && data.createdAt == request.time
+        && (!('updatedAt' in data) || data.updatedAt == request.time)
+        && data.name is string
+        && data.name.size() >= 2
+        && data.name.size() <= 120
+        && data.role in ['patient', 'psychologist']
+        && (
+          (data.role == 'patient' && data.verificationStatus == 'approved')
+          ||
+          (data.role == 'psychologist' && data.verificationStatus == 'pending')
+        )
+        && (!('blocked' in data) || data.blocked == false)
+        && (
+          (data.role == 'patient' && data.cedula == null)
+          ||
+          (data.role == 'psychologist'
+            && data.cedula is string
+            && data.cedula.matches('^[0-9]{6,20}$'))
+        );
+    }
+
+    match /users/{userId} {
+      allow get: if ownsDocument(userId);
+      allow list: if false;
+      allow create: if validNewUser(userId);
+      allow update, delete: if false;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
